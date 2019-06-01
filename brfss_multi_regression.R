@@ -15,9 +15,11 @@ survey15 <- read_xpt("LLCP2015.XPT ")
 survey16 <- read_xpt("LLCP2016.XPT ")
 survey17 <- read_xpt("LLCP2017.XPT ")
 
+# Check tails of files
 tail(survey11)
 tail(survey17)
 
+# Select the variables we care about. The names of some variables are different in earlier surveys.
 variables57 = c("_STATE", "IMONTH", "IYEAR", "DIABETE3", "DIABAGE2", "_RFHLTH", "HLTHPLN1", "MEDCOST", "CHECKUP1", "_AGEG5YR", "SEX", "CHILDREN", "_EDUCAG", "MARITAL", "RENTHOM1", "EMPLOY1", "INCOME2", "_BMI5", "_SMOKER3", "_RFDRHV5")
 variables34 = c("_STATE", "IMONTH", "IYEAR", "DIABETE3", "DIABAGE2", "_RFHLTH", "HLTHPLN1", "MEDCOST", "CHECKUP1", "_AGEG5YR", "SEX", "CHILDREN", "_EDUCAG", "MARITAL", "RENTHOM1", "EMPLOY1", "INCOME2", "_BMI5", "_SMOKER3", "_RFDRHV4")
 variables12 = c("_STATE", "IMONTH", "IYEAR", "DIABETE3", "DIABAGE2", "_RFHLTH", "HLTHPLN1", "MEDCOST", "CHECKUP1", "_AGEG5YR", "SEX", "CHILDREN", "_EDUCAG", "MARITAL", "RENTHOM1", "EMPLOY", "INCOME2", "_BMI5", "_SMOKER3", "_RFDRHV4")
@@ -30,11 +32,13 @@ rsurvey15 <- select(survey15, variables57)
 rsurvey16 <- select(survey16, variables57)
 rsurvey17 <- select(survey17, variables57)
 
+# Correct the name discrepancies.
 rsurvey14 <- rename(rsurvey14, "_RFDRHV5" = "_RFDRHV4")
 rsurvey13 <- rename(rsurvey13, "_RFDRHV5" = "_RFDRHV4")
 rsurvey12 <- rename(rsurvey12, "_RFDRHV5" = "_RFDRHV4", "EMPLOY1" = "EMPLOY")
 rsurvey11 <- rename(rsurvey11, "_RFDRHV5" = "_RFDRHV4", "EMPLOY1" = "EMPLOY")
 
+#Combine all years into a single data set
 data <- bind_rows(rsurvey11, rsurvey12, rsurvey13, rsurvey14, rsurvey15, rsurvey16, rsurvey17)
 
 
