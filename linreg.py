@@ -199,6 +199,7 @@ def graph_residual(state):
 
     plt.xlabel("Year")
     plt.ylabel("Residual (Thousands)")
+    plt.title("{0} Residual".format(state))
 
 def compare_mse_distributions():
     '''Compare the mean square error for using full data vs post-2011.
@@ -269,7 +270,6 @@ def compare_mse_distributions():
     plt.xlabel("Normalized Mean Squared Error")
     plt.ylabel("Distribution")
     plt.legend(loc="upper right")
-    plt.title("{0} Residual".format(state))
 
 def write_prediction_table(
         fulloutput="./predictions/Full_Predictions.csv",
