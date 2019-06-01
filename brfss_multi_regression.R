@@ -51,15 +51,27 @@ data17 <- bind_rows(rsurvey11, rsurvey12, rsurvey13, rsurvey14, rsurvey15, rsurv
 
 
 # Convert columns of categorical variables to factors
-data17f <- lapply(data17[1:21], as.factor)
+data17f <- lapply(data17[4:21], as.factor)
 
-## Convert data set to tibble and add BMI column back in
+## Convert data set to tibble and add state, year, month, and BMI columns back in
 data17f <- as_tibble(data17f)
-data17f <- bind_cols(data17f, data17[22])
+data17f <- bind_cols(data17[1], data17[2], data17[3], data17f, data17[22])
+## Make month and year columns numeric
+data17f <- transform(data17f, IYEAR = as.numeric(IYEAR), IMONTH = as.numeric(IMONTH))
+data17f <- as_tibble(data17f)
+
+
+## 
+DIABETE3
+
+
 
 
 ## Linear Regression
-lmod1 <- lm(DIABETE3 ~ IYEAR * ., filter(data17f, state == 1))
+lmod1 <- lm(DIABETE3 ~ IYEAR, filter(data17f, X_STATE == 1))
+
+summary(lmod1)
+
 
 
 #install.packages("olsrr")
