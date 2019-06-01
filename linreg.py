@@ -15,6 +15,22 @@ import matplotlib.pyplot as plt
 
 FULL_DATA = cdcdata.read_Diabetes_Data_file()
 
+def read_test_train_full(state, test_size=0.3):
+    '''Get a testing and training set only since 2011.
+    
+    This function reads the year and diabetes number for all FULL_DATA records
+    starting with the year 2011. This year marked the first main revision of 
+    the BFRSS dataset.'''
+    # If a row is missing data, ignore it?
+    # The next level is to impute it, but I don't believe in that.
+    state_data = FULL_DATA[np.logical_and(
+            FULL_DATA["State"] == state, ~pandas.isnull(FULL_DATA["Number"]))]
+    # Split the data randomly into testing and training sets 70/30 and return
+    # the 4-tuple.
+    return train_test_split(
+        state_data["Year"], state_data["Number"], test_size=test_size,
+        random_state=53019)
+
 def read_test_train_since2011(state, test_size=0.3):
     '''Get a testing and training set only since 2011.
     
@@ -200,6 +216,7 @@ def compare_mse_distributions():
     allstates.remove("Virgin Islands of the U.S.")
     msefull_array = np.zeros(len(allstates))
     msesince2011_array = np.zeros(len(allstates))
+
     for i, state in enumerate(allstates):
         # Get the testing and training data
         year_train, year_test, diabetes_train, diabetes_test = \
@@ -252,6 +269,64 @@ def compare_mse_distributions():
     plt.xlabel("Normalized Mean Squared Error")
     plt.ylabel("Distribution")
     plt.legend(loc="upper right")
+    plt.title("{0} Residual".format(state))
+
+def write_prediction_table(
+        fulloutput="./predictions/Full_Predictions.csv",
+        shortoutput="./predictions/2011_Predictions.csv"):
+    '''Write a table of predictions.
+
+    Takes the predictions from the linear regression model and writes them to a
+    csv.'''
+    # I want to store the prediction values for all states. Make a list copy of
+    # te States to avoid some weird problem.
+    allstates = list(FULL_DATA["State"].cat.categories)
+    # The Virgin Islands have really spotty data. So I am going to omit the
+    # territories in general. They can be added back in.
+    allstates.remove("Virgin Islands of the U.S.")
+    allstates.remove("Puerto Rico")
+    allstates.remove("Guam")
+    allstates.remove("District of Columbia")
+    # These are the arrays that will hold the predicted years. Each state will
+    # be a row. Each column will be a year.
+    full_array = np.zeros((len(allstates), 3))
+    since2011_array = np.zeros((len(allstates), 3))
+    # The years that we are predicting.
+    predyears = np.arange(2017, 2020)
+    for i, state in enumerate(allstates):
+
+        year_train, year_test, diabetes_train, diabetes_test = \
+            read_test_train_full(state, test_size=0.3)
+        year2011_train, year2011_test, diabetes2011_train, diabetes2011_test = \
+            read_test_train_since2011(state, test_size=0.3)
+        # Get the linear model for the trained data.
+        fulllr = linear_model(year_train, diabetes_train)
+        since2011lr = linear_model(year2011_train, diabetes2011_train)
+
+        # Now make the predictions.
+        fullpred = predict_lr(fulllr, predyears)
+        since2011pred = predict_lr(since2011lr, predyears)
+
+        # The way fullpred is done. I just need to take the transpose and it
+        # will align with the arrays.
+        full_array[i,:] = fullpred.T
+        since2011_array[i,:] = since2011pred.T
+
+    # Place the data into a dataframe.
+    # The output should be an integer. I am adding 0.5 so it rounds correctly
+    # rather than just taking the floor.
+    fullframe = pandas.DataFrame(
+        full_array+0.5, columns=predyears.astype("str"), dtype="int")
+    since2011frame = pandas.DataFrame(
+        since2011_array+0.5, columns=predyears.astype("str"), dtype="int")
+    # Add the State information into the dataframe.
+    fullframe.insert(0, "State", allstates)
+    since2011frame.insert(0, "State", allstates)
+
+    # Now write the files
+    fullframe.to_csv(fulloutput)
+    since2011frame.to_csv(shortoutput)
+
 
 if __name__ == "__main__":
 
@@ -262,6 +337,7 @@ if __name__ == "__main__":
     # like a more appropriate case for a timeseries analysis.
     # This image is stored in "Ohio_Diabetes.png".
     graph_state("Ohio")
+    plt.show()
 
     # Compare the Mean Squared Error calculated for the test samples when the
     # full sample is used vs when only the first 5 years are used. This plot
@@ -272,8 +348,18 @@ if __name__ == "__main__":
     # So I'm not sure whether that actually implies that the fit is better. 
     # The image corresponding to this command is "MSE_DIST.png".
     compare_mse_distributions()
+    plt.show()
 
     # Finally, plot the residual between the model and the data. I think these
     # look pretty reasonable by eye for Ohio (but not Wyoming). 
     # The image corresponding to this command is "Ohio_Residuals.png.
     graph_residual("Ohio")
+    plt.show()
+
+    # Now write the predictions. The predictions will be in the form of a csv
+    # file. The headers will be "State", "2017", "2018", and "2019",
+    # corresponding to the State, and the predictions for each coming year.
+    # The predictions using the full dataset is in "Full_Predictions.csv".
+    # The predictions using just the 2011+ dataset is in
+    # "2011_Predictions.csv".
+    write_prediction_table()
