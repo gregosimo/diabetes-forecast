@@ -5,7 +5,9 @@ The CDC data will be stored as a series of files, one file per year.'''
 import pandas
 from pathlib import Path
 
-CDC_FOLDER = Path.home() / "CDCData"
+# NOTE: I included the data in the Git repository, which is generally a no-no.
+# Please don't make a habit of putting large datasets in the Git repository!
+CDC_FOLDER = Path.cwd() / "data"
 
 def read_Diabetes_Data_file(datapath=CDC_FOLDER / "Diabetes_State.csv"):
     '''Read in a single file of Diabetes rates.
