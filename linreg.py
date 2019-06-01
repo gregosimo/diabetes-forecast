@@ -15,43 +15,6 @@ import matplotlib.pyplot as plt
 
 FULL_DATA = cdcdata.read_Diabetes_Data_file()
 
-def predict_n(n, state):
-    '''Predict the next n years using the linear regression.
-    
-    This takes in a number of years to predict past the last data point. It
-    also requires a state found in the FULL_DATA dataset. It will then run a
-    linear regression on all the years in the full dataset.
-    
-    Predict_n will return a 2-tuple. The first element will be the predictions,
-    an array of length n. The second element will be the mean square error of
-    the validation set.'''
-    last_year = int(max(state_data["Year"]))
-    next_years = np.arange(n).reshape(-1, 1) + last_year
-    diabetes_pred = lr.predict(year_test)
-    mean_square_error = mean_squared_error(diabetes_test, diabetes_pred)
-    diabetes_new = lr.predict(next_years)
-    return diabetes_new, mean_square_error
-
-def read_test_train_full(state, test_size=0.3):
-    '''Get a testing and training set from the full dataset.
-
-    This function reads the year and diabetes number from FULL_DATA for a
-    specific state, and then splits it into a testing and training set. The
-    fraction of testing points should be specified in test_size.
-    
-    This function will return a 4-tuple containing:
-    
-    (year_train, year_test, diabetes_train, diabetes_test)'''
-    # If a row is missing data, ignore it?
-    # The next level is to impute it, but I don't believe in that.
-    state_data = FULL_DATA[np.logical_and(
-        FULL_DATA["State"] == state, ~pandas.isnull(FULL_DATA["Number"]))]
-    # Split the data randomly into testing and training sets 70/30 and return
-    # the 4-tuple.
-    return train_test_split(
-        state_data["Year"], state_data["Number"], test_size=test_size,
-        random_state=53019)
-
 def read_test_train_since2011(state, test_size=0.3):
     '''Get a testing and training set only since 2011.
     
@@ -139,19 +102,21 @@ def graph_state(state):
     post2011 = full_year >= 2011.0
 
     # Make a new window
-    plt.figure()
+    plt.figure(figsize=(11, 8))
 
     # Plot the pre-2011 data in red and the post-2011 data in blue.
-    plt.plot(full_year[pre2011], full_diabetes[pre2011], 'rd')
-    plt.plot(full_year[post2011], full_diabetes[post2011], 'bd')
+    # I want the figure to be in thousands, so I will be dividing the cases by
+    # 1000 in these plots.
+    plt.plot(full_year[pre2011], full_diabetes[pre2011]/1e3, 'rd')
+    plt.plot(full_year[post2011], full_diabetes[post2011]/1e3, 'bd')
 
     # Now plot the fits.
     res_dates = np.linspace(1994, 2019, 2)
     full_fit = predict_lr(fulllr, res_dates)
     since2011_fit = predict_lr(since2011lr, res_dates)
 
-    plt.plot(res_dates, full_fit, 'r-')
-    plt.plot(res_dates, since2011_fit, 'b-')
+    plt.plot(res_dates, full_fit/1e3, 'r-')
+    plt.plot(res_dates, since2011_fit/1e3, 'b-')
 
     # Now make the predictions.
     predyears = np.arange(2017, 2020)
@@ -159,19 +124,73 @@ def graph_state(state):
     since2011pred = predict_lr(since2011lr, predyears)
 
     # Plot the predictions.
-    plt.plot(predyears, fullpred, 'rd')
-    plt.plot(predyears, since2011pred, 'bd')
+    plt.plot(predyears, fullpred/1e3, 'rd')
+    plt.plot(predyears, since2011pred/1e3, 'bd')
 
     # Separate the data from the predictions
     yedges = plt.ylim()
-    plt.plot([2016.5, 2016.5], list(yedges), 'k--')
+    plt.plot([2016.5, 2016.5], yedges, 'k--')
 
     plt.xlabel("Year")
-    plt.ylabel("Number of Diabetes Cases")
+    plt.ylabel("Number of Diabetes Cases (Thousands)")
     plt.title(state)
+    plt.ylim(yedges)
+
+
+def graph_residual(state):
+    '''Graph the residual after regressing for a given state.
+    
+    I think this may be informative to determine if there's apparent structure
+    beyond random noise.'''
+    # Get the testing and training data
+    year_train, year_test, diabetes_train, diabetes_test = read_test_train_full(
+        state, test_size=0.3)
+    year2011_train, year2011_test, diabetes2011_train, diabetes2011_test = \
+        read_test_train_since2011(state, test_size=0.3)
+    # Get the linear model for the trained data.
+    # Get the linear model for the trained data.
+    fulllr = linear_model(year_train, diabetes_train)
+    since2011lr = linear_model(year2011_train, diabetes2011_train)
+
+    # Now rejoin to make the full dataset.
+    full_year = np.concatenate([year_train, year_test])
+    full_diabetes = np.concatenate([diabetes_train, diabetes_test])
+    pre2011 = full_year < 2011.0
+    post2011 = full_year >= 2011.0
+
+    # Make a new window
+    plt.figure(figsize=(11, 8))
+
+    # Calculate the predicted values for all of the years.
+    # Predict yields a 2-dimensional array, so I want to reduce it back to 1
+    # dimension.
+    fullmodel_diabetes = predict_lr(fulllr, full_year)[:,0]
+    since2011_diabetes = predict_lr(since2011lr, full_year[post2011])[:,0]
+
+    # Calculate the residuals.
+    full_residual = fullmodel_diabetes - full_diabetes
+    since2011_residual = since2011_diabetes - full_diabetes[post2011]
+    print(since2011_diabetes.shape)
+
+    # Plot the residuals
+    plt.plot(full_year, full_residual/1e3, 'rd')
+    plt.plot(full_year[post2011], since2011_residual/1e3, 'bd')
+
+    # Plot a zero-line
+    xvals = plt.xlim()
+    plt.plot(xvals, [0, 0], 'k--')
+    plt.xlim(xvals)
+
+    plt.xlabel("Year")
+    plt.ylabel("Residual (Thousands)")
 
 def compare_mse_distributions():
-    '''Compare the mean square error for using full data vs post-2011.'''
+    '''Compare the mean square error for using full data vs post-2011.
+    
+    This will output a graph that shows a histogram of the MSE with the full
+    data and with the post-2011 data for all states. In order to reliably
+    compare MSEs for state, the data is normalized to lie between the maximum
+    and minimum value of the dataset for that state.'''
     # I want to calculate the Mean Square Error for all states using the full
     # dataset and using just the 2011 data. I make a copy of it by running
     # list.
@@ -216,7 +235,7 @@ def compare_mse_distributions():
         msefull_array[i] = normalized_since2011mse
 
     # Make a new window.
-    plt.figure()
+    plt.figure(figsize=(11, 8))
     plt.hist([msefull_array, msesince2011_array], color=["red", "blue"],
              label=["Full Data", "Since 2011"], density=False, bins=50)
 
@@ -225,11 +244,36 @@ def compare_mse_distributions():
     # large outliers. So I want something a bit more robust.
     medmse_full = np.median(msefull_array)
     medmse_since2011 = np.median(msesince2011_array)
+    # Write the medians in the figure.
     plt.text(
         0.35, 30, "Median MSE: {0:.3f}".format(medmse_full), color="red")
     plt.text(
         0.35, 25, "Median MSE: {0:.3f}".format(medmse_since2011), color="blue")
-    # Write the medians in the figure.
-    plt.xlabel("Mean Squared Error")
+    plt.xlabel("Normalized Mean Squared Error")
     plt.ylabel("Distribution")
     plt.legend(loc="upper right")
+
+if __name__ == "__main__":
+
+    # Plot the data and prediction for a particular state.
+    # In many cases this looks reasonable. The two lines fit well to the data.
+    # However, there are some cases where the data looks more like a timeseries
+    # than a linear model with noise. Take a look at Wyoming. Wyoming seems
+    # like a more appropriate case for a timeseries analysis.
+    # This image is stored in "Ohio_Diabetes.png".
+    graph_state("Ohio")
+
+    # Compare the Mean Squared Error calculated for the test samples when the
+    # full sample is used vs when only the first 5 years are used. This plot
+    # clearly shows that the MSE is uch lower when you only use the most recent
+    # data, which may support that the data pre-2011 is substantially different
+    # from the data post-2011. However, I also noticed that since we only have
+    # 5 data points for 2011+, the test sample (30%) will only be 1 or 2 points.
+    # So I'm not sure whether that actually implies that the fit is better. 
+    # The image corresponding to this command is "MSE_DIST.png".
+    compare_mse_distributions()
+
+    # Finally, plot the residual between the model and the data. I think these
+    # look pretty reasonable by eye for Ohio (but not Wyoming). 
+    # The image corresponding to this command is "Ohio_Residuals.png.
+    graph_residual("Ohio")
