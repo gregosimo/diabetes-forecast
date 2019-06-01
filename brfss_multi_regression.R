@@ -35,7 +35,7 @@ rsurvey13 <- rename(rsurvey13, "_RFDRHV5" = "_RFDRHV4")
 rsurvey12 <- rename(rsurvey12, "_RFDRHV5" = "_RFDRHV4", "EMPLOY1" = "EMPLOY")
 rsurvey11 <- rename(rsurvey11, "_RFDRHV5" = "_RFDRHV4", "EMPLOY1" = "EMPLOY")
 
-
+data <- bind_rows(rsurvey11, rsurvey12, rsurvey13, rsurvey14, rsurvey15, rsurvey16, rsurvey17)
 
 
 
