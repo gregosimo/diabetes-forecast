@@ -131,7 +131,7 @@ def read_Diabetes_Data_file(datapath=CDC_FOLDER / "Diabetes_State.csv"):
     The file should be stored in CDC_FOLDER. This function wil return the
     dataframe holding all of the data.'''
     # Read the CSV.
-    diabetes_data = pd.read_csv(
+    df = pd.read_csv(
             datapath, dtype={
                 "State": "category", 
                 "NumberType": "category",
