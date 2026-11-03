@@ -6,6 +6,7 @@ This module uses a linear regression to predict the next several values.'''
 
 import pandas
 import numpy as np
+from pathlib import Path
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error
@@ -330,14 +331,26 @@ def write_prediction_table(
 
 if __name__ == "__main__":
 
+    FIGURE_DIR = Path.cwd() / "figures"
+    diabetes_data = cdcdata.read_Diabetes_Data_file()
+    total_data = diabetes_data[diabetes_data["Category"] == "Total"]
+    states = total_data["State"].unique()
+    for state in states[0:1]: # Only one for now.
+        state_data = total_data[[total_data["State"] == state]]
+        number_data = state_data[[state_data["NumberType"] == "Number"]]
+        plt.plot(number_data["Year"], number_data["Value"], 'bo')
+        plt.xlabel("Year")
+        plt.ylabel("Prevalence")
+        plt.title(f"{state} Diabetes Cases")
+        plt.savefig
     # Plot the data and prediction for a particular state.
     # In many cases this looks reasonable. The two lines fit well to the data.
     # However, there are some cases where the data looks more like a timeseries
     # than a linear model with noise. Take a look at Wyoming. Wyoming seems
     # like a more appropriate case for a timeseries analysis.
     # This image is stored in "Ohio_Diabetes.png".
-    graph_state("Ohio")
-    plt.show()
+    #graph_state("Ohio")
+    #plt.show()
 
     # Compare the Mean Squared Error calculated for the test samples when the
     # full sample is used vs when only the first 5 years are used. This plot
@@ -347,14 +360,14 @@ if __name__ == "__main__":
     # 5 data points for 2011+, the test sample (30%) will only be 1 or 2 points.
     # So I'm not sure whether that actually implies that the fit is better. 
     # The image corresponding to this command is "MSE_DIST.png".
-    compare_mse_distributions()
-    plt.show()
+    #compare_mse_distributions()
+    #plt.show()
 
     # Finally, plot the residual between the model and the data. I think these
     # look pretty reasonable by eye for Ohio (but not Wyoming). 
     # The image corresponding to this command is "Ohio_Residuals.png.
-    graph_residual("Ohio")
-    plt.show()
+    #graph_residual("Ohio")
+    #plt.show()
 
     # Now write the predictions. The predictions will be in the form of a csv
     # file. The headers will be "State", "2017", "2018", and "2019",
@@ -362,4 +375,4 @@ if __name__ == "__main__":
     # The predictions using the full dataset is in "Full_Predictions.csv".
     # The predictions using just the 2011+ dataset is in
     # "2011_Predictions.csv".
-    write_prediction_table()
+    #write_prediction_table()
