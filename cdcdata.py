@@ -160,3 +160,12 @@ def read_Diabetes_Data_file(datapath=CDC_FOLDER / "Diabetes_State.csv"):
 if __name__ == "__main__":
     tidy_table()
 
+    cdc = read_Diabetes_Data_file()
+
+    cdc.columns
+    # The columns are Year, State, Value, NumberType, Category.
+    # There are 25 years, 53 states, 4 numbertypes and 14 categories.
+
+    expected_rows = 25*53*4*14
+    print(expected_rows)
+
