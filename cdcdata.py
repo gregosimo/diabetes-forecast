@@ -162,10 +162,10 @@ if __name__ == "__main__":
 
     cdc = read_Diabetes_Data_file()
 
-    cdc.columns
     # The columns are Year, State, Value, NumberType, Category.
-    # There are 25 years, 53 states, 4 numbertypes and 14 categories.
+    # There are 25 years, 54 states, 4 numbertypes and 14 categories.
+    expected_rows = 25*54*4*14
+    print(f"We expect {expected_rows} rows. "
+            f"The actual number of rows is {len(cdc)}.")
 
-    expected_rows = 25*53*4*14
-    print(expected_rows)
-
+    # Now want to check for missing data.
