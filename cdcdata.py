@@ -4,6 +4,7 @@ The CDC data will be stored as a series of files, one file per year.'''
 
 import pandas as pd
 from pathlib import Path
+from itertools import product
 
 # NOTE: I included the data in the Git repository, which is generally a no-no.
 # Please don't make a habit of putting large datasets in the Git repository!
@@ -157,6 +158,26 @@ def read_Diabetes_Data_file(datapath=CDC_FOLDER / "Diabetes_State.csv"):
     #diabetes_data["Number"] = diabetes_data["Number"].astype(float)
     #return diabetes_data
 
+def missing_data_table(fulldata):
+    '''Calculate fraction of missing data for CATEGORIES and STATE.'''
+
+    # Empty frame: one row per state, one column per category
+    missing_fracs = pd.DataFrame(index=STATES, columns=CATEGORIES, dtype=float)
+
+    # Iterate over the outer product of STATES x CATEGORIES
+    for state, category in product(STATES, CATEGORIES):
+        numbers = fulldata[fulldata["NumberType"] == "Number"]
+        matching_years = numbers[np.logical_and(
+            numbers["State"] == state, numbers["Category"] == category)]
+        missing_years = np.count_nonzero(
+                np.isnan(matching_years["Value"]))
+        value = missing_years / len(matching_years)
+        missing_fracs.at[state, category] = value
+        print(state)
+        print(category)
+        print(missing_fracs.at[state, category]) 
+    return missing_fracs
+
 if __name__ == "__main__":
     tidy_table()
 
@@ -168,4 +189,34 @@ if __name__ == "__main__":
     print(f"We expect {expected_rows} rows. "
             f"The actual number of rows is {len(cdc)}.")
 
+    STATES = cdc["State"].unique()
+
     # Now want to check for missing data.
+    # Let's go through each category and State to find how many values are
+    # missing.
+    missing_fracs = missing_data_table(cdc)
+
+
+    # Print the full table with no truncation
+    print (missing_fracs.to_string())
+
+    # Print the summary row of each category and of each state.
+    print(missing_fracs.mean(axis=0))
+    print(missing_fracs.mean(axis=1))
+
+    # Let's drop the race categories and then recompute
+    cdc_norace = cdc[~cdc["Category"].isin(
+        ["Asian", "Black", "White", "Hispanic"])]
+
+    missing_norace = missing_data_table(cdc_norace)
+
+    print (missing_norace.to_string())
+    print(missing_norace.mean(axis=1))
+
+    cdc_bestdata = cdc_norace[~cdc_norace["State"].isin(
+        ["Guam", "Virgin Islands of the U.S."])]
+
+    # Cool, so now I've verified that the race data is really incomplete
+    # for most states. Once that data is removed, all states except alaska
+    # are >95% complete. Alaksa is around 7%, which I will consider
+    # acceptable.
