@@ -2,6 +2,7 @@
 
 The CDC data will be stored as a series of files, one file per year.'''
 
+import numpy as np
 import pandas as pd
 from pathlib import Path
 from itertools import product
@@ -178,6 +179,77 @@ def missing_data_table(fulldata):
         print(missing_fracs.at[state, category]) 
     return missing_fracs
 
+
+def check_na_consistency(fulldata):
+    """Check that every (Category, State, Year) combination appears in all
+    NumberType subsets and that "Value" is NA in all of them or in none.
+
+    Returns a DataFrame of problem rows (empty if everything is consistent).
+    """
+    keys = ["Category", "State", "Year"]
+    types = ["Number", "Percentage", "UpperLim", "LowerLim"]
+    merged = None
+
+    for numtype in types:
+        subset = fulldata[fulldata["NumberType"] == numtype]
+
+        # Fail early with a readable message if the key isn't unique
+        dupes = subset[subset.duplicated(keys, keep=False)]
+        if not dupes.empty:
+            raise ValueError(
+                f"{len(dupes)} rows of type {numtype!r} share the same "
+                f"{keys}; another column probably belongs in the key.\n"
+                f"{dupes.sort_values(keys).head(10)}"
+            )
+
+        # Keep keys + Value, and add a flag so we can tell a missing row
+        # apart from a row whose Value is NA
+        part = (
+            subset[keys + ["Value"]]
+            .rename(columns={"Value": f"Value_{numtype}"})
+            .assign(**{f"in_{numtype}": True})
+        )
+
+        if merged is None:
+            merged = part
+        else:
+            merged = merged.merge(
+                part, on=keys, how="outer", validate="one_to_one"
+            )
+
+    in_cols = [f"in_{t}" for t in types]
+    value_cols = [f"Value_{t}" for t in types]
+
+    # After an outer merge, flags for absent rows are NaN, and NaN == True is False
+    present = merged[in_cols].eq(True)
+    all_present = present.all(axis=1)
+
+    # NA consistency only makes sense for rows present in all subsets
+    # (absent rows get NaN from the merge itself)
+    na = merged[value_cols].isna()
+    na_inconsistent = all_present & na.any(axis=1) & ~na.all(axis=1)
+
+    problems = merged[~all_present | na_inconsistent].copy()
+
+    # Describe each problem
+    def describe(idx):
+        missing = [t for t in types if not present.at[idx, f"in_{t}"]]
+        if missing:
+            return "missing in: " + ", ".join(missing)
+        return "inconsistent NA"
+
+    problems["problem"] = [describe(i) for i in problems.index]
+
+    n_missing = int((~all_present).sum())
+    n_na = int(na_inconsistent.sum())
+    print(f"{len(merged)} unique {keys} combinations checked")
+    print(f"  missing from at least one subset: {n_missing}")
+    print(f"  inconsistent NA values:           {n_na}")
+
+    if problems.empty:
+        print("OK: all subsets are consistent.")
+    return problems.sort_values(keys).drop(columns=in_cols)
+
 if __name__ == "__main__":
     tidy_table()
 
@@ -220,3 +292,20 @@ if __name__ == "__main__":
     # for most states. Once that data is removed, all states except alaska
     # are >95% complete. Alaksa is around 7%, which I will consider
     # acceptable.
+
+    # Let's double-check that all number types are equivalently missing.
+    number_bestdata = cdc_bestdata[
+            cdc_bestdata["NumberType"] == "Number"]
+    percentage_bestdata = cdc_bestdata[
+            cdc_bestdata["NumberType"] == "Percentage"]
+    upperlim_bestdata = cdc_bestdata[
+            cdc_bestdata["NumberType"] == "UpperLim"]
+    lowerlim_bestdata = cdc_bestdata[
+            cdc_bestdata["NumberType"] == "LowerLim"]
+
+    numbervpercentage = (
+            np.isnan(number_bestdata["Value"]) == 
+            np.isnan(percentage_bestdata["Value"]))
+    print(number_bestdata[["Year", "State"]][numbervpercentage])
+
+    # Next let's check for gaps
