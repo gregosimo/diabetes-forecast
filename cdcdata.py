@@ -10,7 +10,8 @@ from itertools import product
 # NOTE: I included the data in the Git repository, which is generally a no-no.
 # Please don't make a habit of putting large datasets in the Git repository!
 CDC_FOLDER = Path.cwd() / "data"
-
+DATA_PATH = (CDC_FOLDER /
+             "USDSS_State_Burden_Magnitude_Diabetes_Indicators_20261110.csv")
 CATEGORIES = [
     "18-44", "45-64", "65-74", "75+",
     "Asian", "Black", "White", "Hispanic",
@@ -122,8 +123,26 @@ def tidy_table(inputpath=CDC_FOLDER, output="Diabetes_State.csv") -> pd.DataFram
     tidy.to_csv(inputpath / output, index=False)
     return tidy
 
+def read_Diabetes_data_file(path: Path | str = DATA_PATH) -> pd.DataFrame:
+    """Load the CDC U.S. Diabetes Surveillance System extract (long format).
 
-def read_Diabetes_Data_file(datapath=CDC_FOLDER / "Diabetes_State.csv"):
+    The four value columns (``Estimate``, ``SE Estimate``, ``Lower Limit``,
+    ``Upper Limit``) are coerced to numeric; suppressed / no-data cells
+    become NaN and the reason stays in ``Estimate Footnote``.
+
+    Returns
+    -------
+    pd.DataFrame
+        One row per State x Year x Indicator x Unit x Population x Age x
+        Race x Sex x Education.
+    """
+    df = pd.read_csv(path, low_memory=False)
+    for c in ["Estimate", "SE Estimate", "Lower Limit", "Upper Limit"]:
+        df[c] = pd.to_numeric(df[c].astype(str).str.replace(",", ""),
+                              errors="coerce")
+    return df
+
+def read_old_Diabetes_Data_file(datapath=CDC_FOLDER / "Diabetes_State.csv"):
     '''Read in a single file of Diabetes rates.
     
     The file shouuld be taken from the aggregated CDC Diabetes Atlas at:
@@ -250,19 +269,33 @@ def check_na_consistency(fulldata):
         print("OK: all subsets are consistent.")
     return problems.sort_values(keys).drop(columns=in_cols)
 
+def working_diabetes_data(cdcfile):
+    '''Automatically generate the latest version of the diabetes dataset.
+
+    This function reads in the original Diabetes dataset and filters out the
+    largely incomplete categories as well as any problematic data in
+    order to easily access the full working dataset.'''
+
+
+    cdc_norace = cdcfile[~cdcfile["Category"].isin(
+        ["Asian", "Black", "White", "Hispanic"])]
+    cdc_bestdata = cdc_norace[~cdc_norace["State"].isin(
+        ["Guam", "Virgin Islands of the U.S."])]
+    return cdc_bestdata
+
 if __name__ == "__main__":
-    tidy_table()
-
     cdc = read_Diabetes_Data_file()
-
-    # The columns are Year, State, Value, NumberType, Category.
-    # There are 25 years, 54 states, 4 numbertypes and 14 categories.
-    expected_rows = 25*54*4*14
-    print(f"We expect {expected_rows} rows. "
-            f"The actual number of rows is {len(cdc)}.")
+    cdc_best = working_Diabetes_data()
 
     STATES = cdc["State"].unique()
 
+    print(cdc.columns)
+
+    for col in cdc.columns:
+        print(col)
+        print(cdc[col].unique())
+
+# Expected entries for subentries: 65340000
     # Now want to check for missing data.
     # Let's go through each category and State to find how many values are
     # missing.
@@ -292,6 +325,8 @@ if __name__ == "__main__":
     # for most states. Once that data is removed, all states except alaska
     # are >95% complete. Alaksa is around 7%, which I will consider
     # acceptable.
+
+    cdcdata.check_na_consistency(cdc_bestdata)
 
     # Let's double-check that all number types are equivalently missing.
     number_bestdata = cdc_bestdata[
