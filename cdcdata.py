@@ -198,6 +198,38 @@ def missing_data_table(fulldata):
         print(missing_fracs.at[state, category]) 
     return missing_fracs
 
+#:'<,'>s/df/fulldata/g
+def check_table_missingness(fulldata):
+    '''Go thorugh all the combinations of the dimensions we care about to see
+    how full the dataset is.'''
+    dims = ['State', 'Year', 'Population', 'Age', 'Race', 'Sex', 'Education']
+
+    full = pd.MultiIndex.from_product(
+        [fulldata[d].unique() for d in dims],
+        names=dims,
+    )
+    assert not fulldata.duplicated(dims).any(), "Duplicate combinations: widen the key"
+
+
+    s = fulldata.set_index(dims)["Value"]
+
+    # All possible combinations, built from the levels seen in the data
+    full_index = pd.MultiIndex.from_product(
+        [sorted(fulldata[d].unique()) for d in dims], names=dims
+    )
+
+    s_full = s.reindex(full_index)          # absent combinations become NaN
+
+    # 0 = row absent, 1 = row present but Value is NA, 2 = has a value
+    code = pd.Series(np.where(s_full.isna(), 1, 2), index=full_index)
+    code[~full_index.isin(s.index)] = 0
+
+    missing = code[code == 0].index.to_frame(index=False)
+    na_only = code[code == 1].index.to_frame(index=False)
+
+    print(f"{len(missing)} of {len(code)} combinations absent "
+          f"({len(missing) / len(code):.1%})")
+    print(missing.to_string())
 
 def check_na_consistency(fulldata):
     """Check that every (Category, State, Year) combination appears in all
